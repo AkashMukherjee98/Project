@@ -314,7 +314,7 @@ def login():
 @app.route('/decode', methods =['GET'])
 def decode():
     token ="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjEiLCJwYXNzIjoiMTIzIiwiZGF0ZSI6IjIwMjItMDYtMDggMTc6MjY6MTguMTYwNTA2In0.qkSXOlULUgQUZnUqOxVCFRPtQqVHxilKrDRjMq7ZOL8"
-    SECRET_KEY = "akash"    
+    SECRET_KEY = os.environ.get('SCKY')    
     try:    
         decode_data = jwt.decode(token,SECRET_KEY,algorithms=['HS256'])
         return jsonify(decode_data)
@@ -328,21 +328,33 @@ def decode():
 def authen():
     headers = request.headers
     bearer = headers.get('Authorization')
-    token = bearer.split()[1]
-    #print(token)
-    #return "014"
-    #token ="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjEiLCJwYXNzIjoiMTIzIiwiZGF0ZSI6IjIwMjItMDYtMDggMTc6MjY6MTguMTYwNTA2In0.qkSXOlULUgQUZnUqOxVCFRPtQqVHxilKrDRjMq7ZOL8"
-    SECRET_KEY = "akash"    
+    token_bearer = bearer.split()[1]
+    SECRET_KEY = os.environ.get('SCKY')    
     try:
-        if token:    
-            decode_data = jwt.decode(token,SECRET_KEY,algorithms=['HS256'])
-            return jsonify(decode_data)
-        #else:
-        #    return jsonify({"msg": "Invalid Token"})
+        if token_bearer:    
+            decode_data = jwt.decode(token_bearer,SECRET_KEY,algorithms=['HS256'])
+            #return jsonify(decode_data)
+            print(decode_data)
+            first_value = list(decode_data.items())[0][1]
+            print(first_value)
+            connection = mysql.connector.connect(host=os.environ.get('HOS'), database=os.environ.get('DBS'), user=os.environ.get('ADM'), password=os.environ.get('PWOD'))
+            if connection.is_connected():
+                try:
+                    db_Info = connection.get_server_info()
+                    print("Connected to MySQL Server version ", db_Info)
+                    cursor = connection.cursor()                
+                    sql="select * from company.users where usersId={}".format(first_value)
+                    print(sql)
+                    cursor.execute(sql)
+                    record = cursor.fetchone()
+                    if record:
+                        return jsonify({"msg": "Token is valid"},{"user": decode_data})
+                except Exception as e:
+                    print("Error: ",e)
+                    return jsonify({"msg": "Invalid Token"})
     except Exception as e:
         print("Error: ",e)
-        #return jsonify({"msg": "check again"})
-        return jsonify({"msg": "Invalid Token"})
+        return jsonify({"msg": "Check Again"})
 
 
 
