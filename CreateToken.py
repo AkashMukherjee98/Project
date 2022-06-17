@@ -1,16 +1,19 @@
-from calendar import c
+#from calendar import c
+#import re
+#from urllib.request import HTTPBasicAuthHandler
+from lib2to3.pgen2 import token
 import re
-from urllib.request import HTTPBasicAuthHandler
+from idna import valid_contextj
 import jwt
-import datetime
-from flask import Flask, jsonify, make_response, request ,session,url_for
+from datetime import datetime,timedelta
+from flask import Flask, jsonify, make_response, request 
 import os
 #from flask_mysqldb import MySQL
 #import MySQLdb.cursors
 from dotenv import load_dotenv
 import mysql.connector
-from requests import session
-from flask_restful import Api,fields,Resource
+#from requests import session
+#from flask_restful import Api,fields,Resource
 
 app=Flask(__name__)
 
@@ -98,7 +101,7 @@ def insertdata():
                     usersName=data['usersName']
                     usersEmail=data['usersEmail'] 
                     usersPassword=data['usersPassword']
-                    #print(data)
+                    #print(usersId,usersName)
                     sql = "INSERT INTO users (usersId, usersName, usersEmail, usersPassword) VALUES (%s, %s, %s, %s)"
                     val=(usersId,usersName,usersEmail,usersPassword)
                     cursor.execute(sql, val)
@@ -270,11 +273,6 @@ def tokdeco():
 def login():
     try:
         auth = request.authorization
-    #    print("id: ",auth.username)
-    #    print("paswd: ",auth.password)
-        #un=auth.username
-        #exit(0)
-        #ps=auth.password
         connection = mysql.connector.connect(host=os.environ.get('HOS'), database=os.environ.get('DBS'), user=os.environ.get('ADM'), password=os.environ.get('PWOD'))
         if connection.is_connected():
             try:
@@ -285,15 +283,22 @@ def login():
                 cursor.execute(sql)
                 record = cursor.fetchone()
                 if record:
-                    #print("Creating token",auth.password)
-                    #return jsonify({"msg": "user exists"})
-                    print("id: ",auth.username)
-                    print("paswd: ",auth.password)
                     SECRET_KEY="akash"
+                    now=datetime.now() 
+                    print("now: ",now)
+                    #dt_st = now.strftime("%H:%M:%S")
+                    #print("time =", dt_st)
+                    delta=datetime.now()+timedelta(minutes=2)
+                    #dt_str=delta.strftime("%H:%M:%S")
+                    #print("delta: ",delta)
+                    #c=now-delta
+                    #print("min ",c)
+                    #minutes = c.total_seconds() / 60
+                    #print('Total difference in minutes: ', minutes)
                     json_data = {
                         "id": auth.username,
                         "pass":auth.password,
-                        "date": str(datetime.datetime.now())
+                        "exp": delta
                     }
                     encode_data = jwt.encode(json_data, key=SECRET_KEY, algorithm="HS256")
                     return jsonify({'msg': encode_data})                    
@@ -302,15 +307,11 @@ def login():
             except Exception as e:
                 print("Error: ",e)
                 return jsonify({"msg": "Check again"})
-            #print(record)
-            #exit(0)
-             
-        #return "hi"
     except Exception as e:
         print("Error: ",e)
         return make_response("Error")
 
-
+ 
 @app.route('/decode', methods =['GET'])
 def decode():
     token ="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjEiLCJwYXNzIjoiMTIzIiwiZGF0ZSI6IjIwMjItMDYtMDggMTc6MjY6MTguMTYwNTA2In0.qkSXOlULUgQUZnUqOxVCFRPtQqVHxilKrDRjMq7ZOL8"
@@ -333,28 +334,40 @@ def authen():
     try:
         if token_bearer:    
             decode_data = jwt.decode(token_bearer,SECRET_KEY,algorithms=['HS256'])
-            #return jsonify(decode_data)
             print(decode_data)
             first_value = list(decode_data.items())[0][1]
-            print(first_value)
-            connection = mysql.connector.connect(host=os.environ.get('HOS'), database=os.environ.get('DBS'), user=os.environ.get('ADM'), password=os.environ.get('PWOD'))
-            if connection.is_connected():
-                try:
-                    db_Info = connection.get_server_info()
-                    print("Connected to MySQL Server version ", db_Info)
-                    cursor = connection.cursor()                
-                    sql="select * from company.users where usersId={}".format(first_value)
-                    print(sql)
-                    cursor.execute(sql)
-                    record = cursor.fetchone()
-                    if record:
-                        return jsonify({"msg": "Token is valid"},{"user": decode_data})
-                except Exception as e:
-                    print("Error: ",e)
-                    return jsonify({"msg": "Invalid Token"})
+            print(first_value)   
+            exp_time=list(decode_data.items())[2][1]
+            print("ex: ",exp_time)
+            dt_obj = datetime.fromtimestamp(exp_time)
+            print("exp time:",dt_obj)
+            a=datetime.now()
+            print("a: ",a)
+            min=dt_obj-a
+            print("min ==",min)
+            minutes = min.total_seconds() / 60
+            print('Total difference in minutes: ', minutes)
+            #return "pp"
+            if min>dt_obj:
+                return "Token Expired"  
+            else:
+                connection = mysql.connector.connect(host=os.environ.get('HOS'), database=os.environ.get('DBS'), user=os.environ.get('ADM'), password=os.environ.get('PWOD'))
+                if connection.is_connected():
+                    try:
+                        cursor = connection.cursor()                
+                        sql="select * from company.users where usersId={}".format(first_value)
+                        #print(sql)
+                        cursor.execute(sql)
+                        record = cursor.fetchone()
+                        if record:
+                            return jsonify({"msg": "Token is valid"},{"user": decode_data}) 
+                    except Exception as e:
+                        print("Error: ",e)
+                        return jsonify({"msg": "Invalid Token"})            
     except Exception as e:
         print("Error: ",e)
         return jsonify({"msg": "Check Again"})
+
 
 
 
@@ -367,7 +380,14 @@ if __name__== "__main__":
 
 
 
+'''
 
+
+
+
+
+
+'''
 
 
 
